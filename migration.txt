@@ -1,0 +1,675 @@
+# PRAW to Devvit Web Migration Plan
+
+## Source Files and Structure
+
+**Source Files:**
+- `app-to-migrate/justnobot.py` - Main bot logic (604 lines)
+- `app-to-migrate/comments.py` - Comment templates (77 lines)
+- `app-to-migrate/config.py` - Configuration with hardcoded secrets
+- `app-to-migrate/dbmigration.py` - PostgreSQL database migration
+- `app-to-migrate/migration.py` - SQLite to PostgreSQL migration
+- `app-to-migrate/Dockerfile` - Container deployment configuration
+- `app-to-migrate/docker-compose.yml` - PostgreSQL service setup
+- `app-to-migrate/tests/test_database.py` - Database tests (378 lines)
+- `app-to-migrate/tests/test.py` - Empty test stubs
+
+**PRAW Entrypoints and Startup:**
+- **Entry point**: `python3 justnobot.py` (line 604 in justnobot.py)
+- **Startup command**: Creates bot instance and calls `threading()` method
+- **Initialization**: PRAW Reddit client with OAuth credentials from config.py
+
+## PRAW vs Async PRAW Usage
+
+**Determination**: The source uses **PRAW only** (not asyncpraw)
+
+**Evidence:**
+- `import praw` in justnobot.py (line 4)
+- requirements.txt contains only `praw` and `psycopg2`
+- No async/await patterns in the codebase
+- Uses synchronous threading instead of async operations
+
+## Reddit API Calls and Object Methods
+
+### PRAW Reddit API Usage:
+
+1. **Reddit Client Initialization** (lines 18-23):
+   ```python
+   praw.Reddit(username=config.username,
+               password=config.password,
+               client_id=config.client_id,
+               client_secret=config.client_secret,
+               user_agent=config.user_agent)
+   ```
+
+2. **Post Streaming** (line 498-499):
+   ```python
+   reddit.subreddit(self.network).stream.submissions()
+   ```
+
+3. **Message Streaming** (line 426):
+   ```python
+   reddit.inbox.stream()
+   ```
+
+4. **Comment Operations**:
+   - `post.reply(body=message)` (line 363)
+   - `comment.mod.distinguish(sticky=True)` (line 378)
+   - `comment.mod.lock()` (line 303)
+
+5. **User Operations**:
+   - `reddit.redditor(str(name)).id` (line 313)
+   - `user.submissions.new(limit=100)` (line 322)
+   - `reddit.redditor(subscriber).message(subject=subject, message=body)` (line 412)
+
+6. **Moderation Operations**:
+   - `comment.stickied` property check (line 288)
+   - `comment.author` comparison (line 291)
+
+## Streaming, Polling, Cron, and Loop Patterns
+
+### Streaming Patterns:
+
+1. **Post Stream** (lines 496-580):
+   ```python
+   while True:
+       try:
+           for post in self.reddit.subreddit(self.network).stream.submissions():
+               # Process posts
+       except Exception as e:
+           time.sleep(60)
+           continue
+   ```
+
+2. **Message Stream** (lines 424-488):
+   ```python
+   while True:
+       try:
+           for message in self.reddit.inbox.stream():
+               # Process messages
+       except Exception as e:
+           continue
+   ```
+
+3. **Threading** (lines 583-599):
+   - Uses Python threading to run post and message streams in parallel
+   - Both threads run as daemon threads
+   - Main thread joins both threads
+
+### Devvit Migration Strategy:
+
+**PRAW Behavior**: Uses infinite while loops with `reddit.subreddit().stream.submissions()` and `reddit.inbox.stream()` for real-time event processing.
+
+**Devvit Replacement**: Use **Triggers** instead of streaming
+- **Post events**: Use `onPostSubmit` trigger
+- **Message handling**: Devvit doesn't support inbox streaming - requires alternative approach
+
+**Mapping**:
+- `reddit.subreddit().stream.submissions()` → `onPostSubmit` trigger
+- `reddit.inbox.stream()` → **Unsupported** - requires redesign using Devvit forms or menu actions
+- `while True` loops → Event-driven trigger system
+- Python threading → Built-in concurrent trigger handling
+
+## Storage Usage Analysis
+
+### Current Storage Implementation:
+
+**PostgreSQL Database** (lines 42-98 in justnobot.py):
+- **Tables**: posters, subscribers, subreddits, subscription
+- **Relationships**: Foreign keys with CASCADE delete
+- **Connection**: psycopg2 with Docker PostgreSQL service
+- **Schema**: Relational model for subscription management
+
+**Migration Scripts**:
+- `migration.py`: SQLite to PostgreSQL migration
+- `dbmigration.py`: SQL dump file execution
+
+### Devvit Storage Migration:
+
+**PRAW Behavior**: PostgreSQL database with relational schema, SQL queries, and connection pooling.
+
+**Devvit Replacement**: Use **Redis** for storage
+
+**Storage Mapping**:
+- PostgreSQL tables → Redis hashes and sorted sets
+- SQL queries → Redis commands (hSet, hGet, zAdd, zRange)
+- Foreign key relationships → Application-level logic
+- Relational schema → Denormalized Redis structure
+
+**Recommended Redis Schema**:
+- `subscribers:{poster}:{subreddit}` → Set of subscriber usernames
+- `posters:{subreddit}` → Set of poster usernames  
+- `user_post_count:{user}:{subreddit}` → Counter for post history
+- `subscription:{subscriber}:{poster}:{subreddit}` → Individual subscription record
+
+**Unsupported**: Complex SQL queries, JOINs, foreign key constraints, transactions (unless using Redis transactions)
+
+## Environment Variables, Secrets, and Configuration
+
+### Current Implementation:
+
+**Hardcoded Secrets** (config.py lines 2-10):
+- `client_id`, `client_secret` (OAuth credentials)
+- `username`, `password` (Reddit account credentials)
+- `db_user`, `db_password` (PostgreSQL credentials)
+- All stored in plain text in config.py
+
+**Database Configuration**:
+- Database names: `justnodb`, `testdb`
+- Host: `postgresql` (Docker service)
+- Connection details hardcoded
+
+### Devvit Migration:
+
+**PRAW Behavior**: Hardcoded OAuth credentials in config.py, manual Reddit app creation required.
+
+**Devvit Replacement**: Use **Devvit Settings and Secrets**
+
+**Configuration Mapping**:
+- OAuth credentials → **Not needed** - Devvit handles authentication automatically
+- Database credentials → **Not needed** - Redis managed by Devvit
+- App configuration → Devvit settings UI
+- Environment variables → Devvit configuration system
+
+**Unsupported**: Manual OAuth management, custom database hosting
+
+## External HTTP Domains and Webhook Integrations
+
+### Current Implementation:
+
+**External Domains**: None detected
+- All Reddit API calls go through PRAW
+- No external HTTP requests or webhooks
+- No third-party service integrations
+
+### Devvit Migration:
+
+**Impact**: Minimal - no external dependencies to migrate
+- PRAW's Reddit API calls → Devvit Reddit API
+- No HTTP fetch needed for Reddit operations
+- Devvit supports HTTP fetch if external services needed later
+
+## CLI, Admin, Moderator, and Maintenance Flows
+
+### Current Implementation:
+
+**CLI**: None - only script execution
+**Admin Flows**: Basic error handling and logging to stderr
+**Moderator Features**: 
+- Comment locking (line 301-306)
+- Comment distinguishing/stickying (line 378, 385)
+- Post archival checks (line 502)
+
+**Maintenance**:
+- Docker-based deployment
+- PostgreSQL volume persistence
+- Basic error recovery with continue statements
+
+### Devvit Migration:
+
+**CLI**: Not needed - Devvit provides web interface
+**Admin**: Enhanced through Devvit's management console
+**Moderation**: Leverage existing Devvit menu actions (already configured in devvit.json)
+**Maintenance**: Devvit handles deployment and scaling
+
+**Current Devvit Setup** (devvit.json):
+- Menu actions for "Mop comments" and "Mop post comments" 
+- Moderator-only access
+- Form submissions for batch operations
+
+## Non-Portable Dependencies
+
+### Python-Only Dependencies:
+
+1. **psycopg2** (PostgreSQL adapter):
+   - **Status**: Non-portable
+   - **Replacement**: Devvit Redis
+
+2. **threading** module:
+   - **Status**: Non-portable 
+   - **Replacement**: Devvit's concurrent trigger handling
+
+3. **time.sleep()**:
+   - **Status**: Non-portable
+   - **Replacement**: Not needed in event-driven architecture
+
+4. **file system operations**:
+   - **Status**: Non-portable
+   - **Replacement**: Devvit blob storage (if needed)
+
+### Native Dependencies:
+
+- **Docker**: Container orchestration - Devvit handles deployment
+- **PostgreSQL**: Database - Devvit provides Redis
+
+### Unsupported Features:
+
+- Direct SQL queries
+- Custom database hosting
+- Manual OAuth management
+- File system access
+- Long-running background processes
+
+## Tests and Untested Behavior
+
+### Current Test Coverage:
+
+**test_database.py**: 
+- Comprehensive database operation tests
+- Tests for addSubscriber, getSubscribers, removeSubscription
+- Uses in-memory PostgreSQL for testing
+- **Status**: Well-tested database logic
+
+**test.py**:
+- Empty test stubs only
+- No actual test implementations
+- **Status**: Untested
+
+### Untested Behavior:
+
+- Reddit API interactions
+- Stream processing logic
+- Error handling in production
+- Comment posting and moderation
+- Message processing
+- Threading coordination
+
+### Devvit Migration Testing:
+
+**Strategy**: 
+- Migrate database tests to use Redis
+- Add integration tests for Devvit triggers
+- Test subscription flows with Devvit forms
+- Mock Reddit API calls for unit testing
+
+## Devvit API Mappings
+
+### Direct Devvit Mappings:
+
+| PRAW Feature | Devvit Equivalent | Files |
+|-------------|------------------|-------|
+| `post.reply()` | `reddit.submitComment()` | Reddit API docs |
+| `comment.mod.distinguish()` | Built-in moderation | Devvit permissions |
+| `comment.mod.lock()` | Built-in moderation | Devvit permissions |
+| `user.submissions.new()` | `reddit.getUser()` | Reddit API |
+| Post streaming | `onPostSubmit` trigger | Triggers docs |
+| PostgreSQL | Redis | Redis docs |
+
+### Risky Mappings:
+
+| PRAW Feature | Devvit Approach | Risk Level |
+|-------------|----------------|------------|
+| `reddit.inbox.stream()` | Redesign with forms/menu actions | **High** |
+| Message handling | Devvit forms or alternative UI | **High** |
+| Complex SQL queries | Redis reimplementation | **Medium** |
+| Threading model | Event-driven triggers | **Medium** |
+| User history retrieval | Reddit API with limits | **Low** |
+
+### Unsupported Gaps:
+
+| PRAW Feature | Devvit Status | Workaround |
+|-------------|---------------|------------|
+| Private message inbox streaming | **Unsupported** | Use Devvit forms for subscriptions |
+| Direct private messaging | **Limited** | Use Devvit notifications |
+| Custom OAuth management | **Not needed** | Devvit handles auth |
+| File system access | **Unsupported** | Use blob storage if needed |
+| Long-running processes | **Unsupported** | Event-driven architecture |
+| Complex relational queries | **Unsupported** | Redis with app logic |
+
+## Key Migration Challenges
+
+### Critical Issues:
+
+1. **Message Streaming Loss**: PRAW's `reddit.inbox.stream()` has no direct Devvit equivalent. The subscription/unsubscription system requires complete redesign using Devvit forms or menu actions.
+
+2. **Database Architecture**: Moving from relational PostgreSQL to Redis requires significant schema redesign and application logic changes.
+
+3. **Real-time Processing**: PRAW's streaming model with infinite while loops doesn't map directly to Devvit's event-driven trigger system.
+
+### Recommended Approach:
+
+1. **Phase 1**: Replace post streaming with `onPostSubmit` trigger
+2. **Phase 2**: Migrate PostgreSQL to Redis with new schema
+3. **Phase 3**: Redesign message handling using Devvit forms
+4. **Phase 4**: Implement user history with Reddit API
+5. **Phase 5**: Add moderation features using Devvit permissions
+
+### File Mapping Summary:
+
+- `justnobot.py` → Devvit trigger handlers + Redis logic
+- `comments.py` → Template strings in Devvit server
+- `config.py` → Devvit settings (remove hardcoded secrets)
+- `dbmigration.py` → Redis initialization in app install trigger
+- `migration.py` → Not needed (new Redis schema)
+- Docker files → Not needed (Devvit deployment)
+
+## Ordered Migration Plan
+
+### Step 1: Basic Devvit Configuration and Setup
+
+**User-visible behavior**: None (infrastructure setup)
+
+**Source files replaced**: None
+
+**Devvit files and capabilities**:
+- Update `devvit.json` with trigger configuration
+- Add `@devvit/redis` to package.json dependencies
+- Create basic server structure in `src/index.ts`
+
+**Configuration required**:
+- Add triggers section to devvit.json:
+  ```json
+  "triggers": {
+    "onPostSubmit": "/internal/triggers/on-post-submit",
+    "onAppInstall": "/internal/triggers/on-app-install"
+  }
+  ```
+- No permissions changes needed (reddit permission already exists)
+
+**Tests**:
+- Verify devvit.json validates successfully
+- Confirm package.json installs without errors
+- Manual: Run `devvit playtest` to ensure basic server starts
+
+**Behavior changes**: None
+
+---
+
+### Step 2: Trigger Endpoint Skeletons
+
+**User-visible behavior**: None (infrastructure)
+
+**Source files replaced**: None
+
+**Devvit files and capabilities**:
+- Create `src/routes/triggers.ts` with endpoint handlers
+- Implement skeleton `onPostSubmit` handler
+- Implement skeleton `onAppInstall` handler
+- Update `src/index.ts` to register trigger routes
+
+**Configuration required**:
+- No additional configuration needed
+
+**Tests**:
+- Unit tests for trigger endpoint registration
+- Manual: Deploy app and verify trigger endpoints respond with `{ status: 'ok' }`
+
+**Behavior changes**: None
+
+---
+
+### Step 3: Redis Schema Initialization
+
+**User-visible behavior**: Automatic Redis setup on app install
+
+**Source files replaced**: 
+- `app-to-migrate/justnobot.py` lines 42-98 (initDB function)
+- `app-to-migrate/migration.py` (SQLite schema)
+
+**Devvit files and capabilities**:
+- Implement Redis initialization in `onAppInstall` trigger
+- Use `@devvit/redis` for storage
+- Create Redis hash structures for subscriptions
+
+**Configuration required**:
+- No additional configuration needed (Redis managed by Devvit)
+
+**Tests**:
+- Unit tests for Redis schema creation
+- Manual: Install app and verify Redis keys created using Devvit tools
+- Test data: `subreddits:{subreddit}` sets, `subscriptions:{poster}:{subreddit}` hashes
+
+**Behavior changes**: 
+- PostgreSQL replaced with Redis
+- No more manual database migrations
+- Schema is per-subreddit (Devvit limitation)
+
+---
+
+### Step 4: Post Comment Posting ✅ COMPLETED
+
+**User-visible behavior**: Bot automatically comments on new posts with rules, user history, and subscription info
+
+**Source files replaced**:
+- `app-to-migrate/justnobot.py` lines 492-580 (getPosts function)
+- `app-to-migrate/justnobot.py` lines 361-394 (postComment function)
+- `app-to-migrate/justnobot.py` lines 283-299 (stickyChecker function)
+- `app-to-migrate/comments.py` (comment templates)
+
+**Devvit files and capabilities**:
+- Implement business logic in `onPostSubmit` trigger handler
+- Use `reddit.submitComment()` from `@devvit/reddit` 
+- Use `@devvit/redis` to check for existing comments
+- Create comment templates in separate module
+
+**Configuration required**:
+- No additional configuration needed
+
+**Tests**:
+- Unit tests for comment generation logic
+- Integration test: Create test post and verify bot comment appears
+- Manual: Post in test subreddit and verify comment content
+- Test cases: First-time poster vs returning poster, archived posts, locked posts
+
+**Behavior changes**:
+- Event-driven vs streaming (more reliable)
+- Comment deduplication based on Redis vs checking stickied comments
+- No more while True loops
+
+---
+
+### Step 5: User History Retrieval
+
+**User-visible behavior**: Bot comments include OP's post history in the subreddit
+
+**Source files replaced**:
+- `app-to-migrate/justnobot.py` lines 319-357 (getHistory function)
+- `app-to-migrate/justnobot.py` lines 322-324 (user.submissions.new())
+
+**Devvit files and capabilities**:
+- Implement user history retrieval using Reddit API
+- Use `@devvit/reddit` to get user submissions
+- Add caching in Redis for performance
+
+**Configuration required**:
+- No additional configuration needed
+
+**Tests**:
+- Unit tests for history formatting logic
+- Integration test: User with known history posts, verify correct formatting
+- Manual: Test with users who have 0, 1, 10, and 20+ posts in subreddit
+- Test cases: History truncation at 10 posts, timestamp formatting
+
+**Behavior changes**:
+- May have API rate limits (PRAW handled this automatically)
+- History cached in Redis vs always fetched fresh
+- Limited to Reddit API constraints
+
+---
+
+### Step 6: Subscription Management via Forms
+
+**User-visible behavior**: Users can subscribe/unsubscribe to OPs via Devvit forms instead of private messages
+
+**Source files replaced**:
+- `app-to-migrate/justnobot.py` lines 422-488 (getMessages function)
+- `app-to-migrate/justnobot.py` lines 157-218 (addSubscriber function)
+- `app-to-migrate/justnobot.py` lines 222-272 (removeSubscription function)
+
+**Devvit files and capabilities**:
+- Create Devvit forms for subscription management
+- Add form endpoints in `src/routes/forms.ts`
+- Implement subscription logic using Redis
+- Update `devvit.json` with form definitions
+
+**Configuration required**:
+- Add forms section to devvit.json:
+  ```json
+  "forms": {
+    "subscribe": "/internal/form/subscribe",
+    "unsubscribe": "/internal/form/unsubscribe"
+  }
+  ```
+
+**Tests**:
+- Unit tests for subscription CRUD operations
+- Integration test: Subscribe to user, verify Redis updated
+- Manual: Test form submission in playground
+- Test cases: Subscribe/unsubscribe, duplicate subscriptions, invalid users
+
+**Behavior changes**:
+- **MAJOR CHANGE**: Forms instead of private messages
+- Users must interact via UI instead of messaging the bot
+- No more message subject/body parsing
+- Better UX but different user interaction pattern
+
+---
+
+### Step 7: Subscriber Notifications
+
+**User-visible behavior**: Subscribers receive notifications when OPs post in subscribed subreddits
+
+**Source files replaced**:
+- `app-to-migrate/justnobot.py` lines 395-418 (pingSubscribers function)
+- `app-to-migrate/justnobot.py` lines 411-415 (reddit.redditor().message())
+
+**Devvit files and capabilities**:
+- Implement notification logic in `onPostSubmit` trigger
+- Use Devvit notifications system (if available) or alternative
+- Query Redis for subscribers
+- Send notifications via supported Devvit mechanism
+
+**Configuration required**:
+- Research Devvit notification capabilities
+- May need additional permissions depending on approach
+
+**Tests**:
+- Unit tests for subscriber lookup and notification generation
+- Integration test: Subscribe to user, have them post, verify notification
+- Manual: Test full subscription flow
+- Test cases: Multiple subscribers, subscriber in multiple subreddits
+
+**Behavior changes**:
+- **UNSUPPORTED GAP**: Direct private messaging may not be available
+- May need to use Devvit notifications or alternative (comments, posts)
+- Notification format may differ from private messages
+
+---
+
+### Step 8: Moderation Features
+
+**User-visible behavior**: Bot comments are automatically locked and stickied
+
+**Source files replaced**:
+- `app-to-migrate/justnobot.py` lines 301-306 (lockComment function)
+- `app-to-migrate/justnobot.py` lines 377-387 (distinguish/sticky logic)
+
+**Devvit files and capabilities**:
+- Implement comment locking and distinguishing
+- Use Devvit's built-in moderation permissions
+- Leverage existing moderator menu actions in devvit.json
+
+**Configuration required**:
+- No additional configuration needed (moderator permissions already configured)
+
+**Tests**:
+- Integration test: Verify bot comments are locked and distinguished
+- Manual: Post in test subreddit, verify comment moderation
+- Test cases: Posts with existing stickies, moderator-only behavior
+
+**Behavior changes**:
+- Moderation handled by Devvit permissions vs PRAW's mod.distinguish()
+- More reliable permission handling
+
+---
+
+### Step 9: Database Test Migration
+
+**User-visible behavior**: None (testing infrastructure)
+
+**Source files replaced**:
+- `app-to-migrate/tests/test_database.py` (378 lines)
+- `app-to-migrate/tests/test.py` (empty stubs)
+
+**Devvit files and capabilities**:
+- Convert PostgreSQL tests to Redis tests
+- Create integration tests for Devvit triggers
+- Add unit tests for form handlers
+
+**Configuration required**:
+- No additional configuration needed
+
+**Tests**:
+- All existing database tests converted to Redis
+- New integration tests for triggers and forms
+- Manual: Run test suite to verify all tests pass
+
+**Behavior changes**:
+- Tests now use Redis instead of PostgreSQL
+- Test environment simpler (no Docker required)
+
+---
+
+### Step 10: Cleanup and Optimization
+
+**User-visible behavior**: None (maintenance)
+
+**Source files replaced**: None
+
+**Devvit files and capabilities**:
+- Remove commented-out PRAW code
+- Optimize Redis key patterns
+- Add error handling and logging
+- Update documentation
+
+**Configuration required**:
+- No additional configuration needed
+
+**Tests**:
+- Regression testing of all features
+- Performance testing with realistic data volumes
+- Manual: Full end-to-end testing in production-like environment
+
+**Behavior changes**: None (optimization only)
+
+---
+
+### Step 11: Production Deployment
+
+**User-visible behavior**: Live app in production subreddits
+
+**Source files replaced**: None
+
+**Devvit files and capabilities**:
+- Final deployment configuration
+- Production Redis schema validation
+- Monitoring and logging setup
+
+**Configuration required**:
+- Production environment variables if needed
+- App store listing configuration
+
+**Tests**:
+- Production smoke tests
+- Manual: Install in production subreddit and verify all features work
+
+**Behavior changes**: None (deployment only)
+
+---
+
+## Known Unsupported Gaps
+
+1. **Private Message Inbox Streaming**: No direct Devvit equivalent - replaced with forms
+2. **Direct Private Messaging**: May not be supported - notifications through alternative methods
+3. **Complex SQL Queries**: Redis doesn't support JOINs or complex queries
+4. **File System Access**: Not supported in Devvit environment
+5. **Long-running Background Processes**: Event-driven architecture only
+6. **Relational Database**: PostgreSQL replaced with Redis
+
+## Dependencies Removal
+
+After migration, these can be removed:
+- `app-to-migrate/` directory (reference only)
+- PRAW and asyncpraw dependencies
+- psycopg2 and PostgreSQL dependencies
+- Docker and docker-compose files
+- All Python-related infrastructure
