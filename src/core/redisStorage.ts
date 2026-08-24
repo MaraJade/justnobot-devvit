@@ -56,20 +56,38 @@ export async function getSubscribers(poster: string, subreddit: string): Promise
 
 /**
  * Add a subscriber for a poster in a subreddit
+ * Replaces app-to-migrate/justnobot.py addSubscriber function (lines 158-218)
  */
-export async function addSubscriber(subscriber: string, poster: string, subreddit: string): Promise<void> {
-  const subscribers = await getSubscribers(poster, subreddit);
-  if (!subscribers.includes(subscriber)) {
-    subscribers.push(subscriber);
-    await redis.set(SUBSCRIBERS_KEY(poster, subreddit), JSON.stringify(subscribers));
+export async function addSubscriber(subscriber: string, poster: string, subreddit: string): Promise<boolean> {
+  try {
+    const subscribers = await getSubscribers(poster, subreddit);
+    if (!subscribers.includes(subscriber)) {
+      subscribers.push(subscriber);
+      await redis.set(SUBSCRIBERS_KEY(poster, subreddit), JSON.stringify(subscribers));
+      console.log(`Added subscriber ${subscriber} to ${poster} in ${subreddit}`);
+      return true;
+    }
+    console.log(`Subscriber ${subscriber} already exists for ${poster} in ${subreddit}`);
+    return true; // Already subscribed is considered success
+  } catch (error) {
+    console.error('Failed to add subscriber:', error);
+    return false;
   }
 }
 
 /**
  * Remove a subscriber for a poster in a subreddit
+ * Replaces app-to-migrate/justnobot.py removeSubscription function (lines 223-269)
  */
-export async function removeSubscriber(subscriber: string, poster: string, subreddit: string): Promise<void> {
-  const subscribers = await getSubscribers(poster, subreddit);
-  const filtered = subscribers.filter(sub => sub !== subscriber);
-  await redis.set(SUBSCRIBERS_KEY(poster, subreddit), JSON.stringify(filtered));
+export async function removeSubscriber(subscriber: string, poster: string, subreddit: string): Promise<boolean> {
+  try {
+    const subscribers = await getSubscribers(poster, subreddit);
+    const filtered = subscribers.filter(sub => sub !== subscriber);
+    await redis.set(SUBSCRIBERS_KEY(poster, subreddit), JSON.stringify(filtered));
+    console.log(`Removed subscriber ${subscriber} from ${poster} in ${subreddit}`);
+    return true;
+  } catch (error) {
+    console.error('Failed to remove subscriber:', error);
+    return false;
+  }
 }

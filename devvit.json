@@ -20,6 +20,20 @@
         "location": "post",
         "forUserType": "moderator",
         "endpoint": "/internal/menu/mop-post"
+      },
+      {
+        "label": "Subscribe to OP",
+        "description": "Subscribe to this post's author to get notified when they post",
+        "location": "post",
+        "forUserType": "user",
+        "endpoint": "/internal/menu/subscribe"
+      },
+      {
+        "label": "Unsubscribe from OP",
+        "description": "Unsubscribe from this post's author",
+        "location": "post",
+        "forUserType": "user",
+        "endpoint": "/internal/menu/unsubscribe"
       }
     ]
   },

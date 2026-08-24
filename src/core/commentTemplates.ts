@@ -40,10 +40,10 @@ ${userHistory}`;
   return '';
 }
 
-export function generateSubscriptionPrompt(author: string, subreddit: string): string {
+export function generateSubscriptionPrompt(author: string): string {
   return `*****
 
-^(To be notified as soon as ${author} posts an update ) ^([click here.](http://www.reddit.com/message/compose/?to=TheJustNoBot&subject=Subscribe&message=${author} ${subreddit}))
+^(To be notified as soon as ${author} posts an update ) ^(Use the "Subscribe to OP" menu option on this post to get notifications.)
 
 *****`;
 }
@@ -60,7 +60,7 @@ export function generateFullComment(context: CommentContext, welcomeOverride?: s
   const welcome = welcomeOverride || (context.isFirstTimePoster 
     ? generateWelcomeMessage(context.subreddit)
     : generateHistoryMessage(context.author, context.userHistory));
-  const subscriptionPrompt = generateSubscriptionPrompt(context.author, context.subreddit);
+  const subscriptionPrompt = generateSubscriptionPrompt(context.author);
   const botFooter = generateBotFooter(context.subreddit);
 
   return `${quickRules}
