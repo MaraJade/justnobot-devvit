@@ -38,7 +38,8 @@ export function shouldSkipPost(post: { isArchived?: boolean }, hasCommented: boo
 
 /**
  * Get user's post history in subreddit
- * Simplified version that just counts posts for first-time detection
+ * Replaces app-to-migrate/justnobot.py getHistory function (lines 319-357)
+ * Uses Redis-based approach since Devvit Reddit API user.getPosts() returns empty results
  */
 export async function getUserHistoryContext(author: string, subreddit: string): Promise<{
   isFirstTimePoster: boolean;
@@ -53,11 +54,11 @@ export async function getUserHistoryContext(author: string, subreddit: string): 
     };
   }
   
-  // For now, just return basic info without detailed history
-  // Full history retrieval would require additional Reddit API calls
+  // For returning posters, provide a simple message since detailed history 
+  // retrieval isn't available due to Devvit API limitations
   return {
     isFirstTimePoster: false,
-    userHistory: `User has ${postCount} posts in this subreddit.`
+    userHistory: `User has ${postCount} posts in this subreddit. ^(To see their full post history,)[^(click here)](/u/${author}/submitted)\n\n`
   };
 }
 
@@ -94,7 +95,7 @@ ${userHistory}`;
   
   // Post the comment
   await reddit.submitComment({
-    id: post.id,
+    id: post.id as `t1_${string}` | `t3_${string}`,
     text: commentText
   });
   
