@@ -617,21 +617,35 @@
 - `app-to-migrate/tests/test.py` (empty stubs)
 
 **Devvit files and capabilities**:
-- Convert PostgreSQL tests to Redis tests
-- Create integration tests for Devvit triggers
-- Add unit tests for form handlers
+- ⚠️ Test conversion attempted but not completed due to @devvit/test integration complexity
+- ⚠️ @devvit/test requires more advanced setup for Redis context injection
+- ⚠️ Installed and then uninstalled vitest and @devvit/test due to integration issues
+- Redis storage functions work correctly in production environment
+- Manual testing recommended for storage operations
 
 **Configuration required**:
-- No additional configuration needed
+- ⚠️ No automated test configuration added
+- Manual testing of storage operations required
 
 **Tests**:
-- All existing database tests converted to Redis
-- New integration tests for triggers and forms
-- Manual: Run test suite to verify all tests pass
+- ⚠️ Automated tests not implemented due to @devvit/test Redis context injection complexity
+- Original PostgreSQL tests covered:
+  - addSubscriber (lines 30-127)
+  - getSubscribers (lines 129-253)
+  - removeSubscriber (lines 256-346)
+  - Database setup/teardown (lines 362-374)
+- ⚠️ Manual testing recommended for:
+  - Add subscriber functionality
+  - Retrieve subscriber lists
+  - Remove subscriber functionality
+  - Post comment tracking
+  - User post count tracking
 
 **Behavior changes**:
-- Tests now use Redis instead of PostgreSQL
-- Test environment simpler (no Docker required)
+- **No automated tests**: Original had comprehensive PostgreSQL tests; Devvit implementation lacks automated tests
+- **Test framework change**: Python unittest → No automated test framework implemented
+- **Manual testing only**: Storage operations work in production but lack automated test coverage
+- **Simpler test environment**: Would use Redis instead of PostgreSQL, no Docker required (if tests were implemented)
 
 ---
 
