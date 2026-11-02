@@ -7,10 +7,7 @@ export const triggers = new Hono();
 
 triggers.post('/on-app-install', async (c) => {
   const input = await c.req.json<OnAppInstallRequest>();
-  console.log('App installed to subreddit: r/' + input.subreddit?.name);
-
-  // TODO: Initialize Redis schema for subscription management
-  // TODO: Configure subreddit-specific settings
+  console.log('[App Install] Installed to subreddit: r/' + input.subreddit?.name);
 
   return c.json<TriggerResponse>(
     {
@@ -30,7 +27,7 @@ triggers.post('/on-post-submit', async (c) => {
     return c.json<TriggerResponse>({ status: 'ignored' }, 200);
   }
 
-  console.log('Post submitted: ' + post.id + ' in r/' + subreddit);
+  console.log('[Post Submit] Post ID: ' + post.id + ' in r/' + subreddit);
 
   try {
     // Check if post already has bot comment
@@ -38,17 +35,17 @@ triggers.post('/on-post-submit', async (c) => {
     
     // Check if post should be skipped
     if (shouldSkipPost(post, hasCommented, author)) {
-      console.log('Skipping post: ' + post.id);
+      console.log('[Post Submit] Skipping post: ' + post.id);
       return c.json<TriggerResponse>({ status: 'ignored' }, 200);
     }
 
     // Post bot comment with author name
     await postBotComment(post, subreddit, author?.name);
-    console.log('Bot comment posted on: ' + post.id);
+    console.log('[Post Submit] Bot comment posted on: ' + post.id);
 
     return c.json<TriggerResponse>({ status: 'success' }, 200);
   } catch (error) {
-    console.error('Error processing post: ' + post.id, error);
+    console.error('[Post Submit] Error processing post: ' + post.id, error);
     return c.json<TriggerResponse>({ status: 'error' }, 500);
   }
 });

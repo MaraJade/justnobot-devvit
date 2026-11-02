@@ -36,7 +36,7 @@ async function hasStickyComment(postId: string): Promise<{ hasSticky: boolean }>
     
     return { hasSticky };
   } catch (error) {
-    console.error('Error checking for sticky comments:', error);
+    console.error('[Moderation] Error checking for sticky comments:', error);
     return { hasSticky: false };
   }
 }
@@ -56,18 +56,18 @@ async function moderateBotComment(commentId: string, postId: string): Promise<vo
     if (!hasSticky) {
       try {
         await comment.distinguish(true); // sticky=True
-        console.log('Distinguished and stickied bot comment:', commentId);
+        console.log(`[Moderation] Distinguished and stickied comment: ${commentId}`);
       } catch (error) {
-        console.error('Error distinguishing/stickying comment:', error);
+        console.error('[Moderation] Error distinguishing/stickying comment:', error);
       }
     }
     // If there is an existing sticky, just distinguish without sticky
     else {
       try {
         await comment.distinguish(false); // sticky=False
-        console.log('Distinguished (non-sticky) bot comment:', commentId);
+        console.log(`[Moderation] Distinguished (non-sticky) comment: ${commentId}`);
       } catch (error) {
-        console.error('Error distinguishing comment:', error);
+        console.error('[Moderation] Error distinguishing comment:', error);
       }
     }
     
@@ -75,12 +75,12 @@ async function moderateBotComment(commentId: string, postId: string): Promise<vo
     // Replaces app-to-migrate/justnobot.py lockComment function (lines 301-306)
     try {
       await comment.lock();
-      console.log('Locked bot comment:', commentId);
+      console.log(`[Moderation] Locked comment: ${commentId}`);
     } catch (error) {
-      console.error('Error locking comment:', error);
+      console.error('[Moderation] Error locking comment:', error);
     }
   } catch (error) {
-    console.error('Error moderating bot comment:', error);
+    console.error('[Moderation] Error moderating bot comment:', error);
   }
 }
 

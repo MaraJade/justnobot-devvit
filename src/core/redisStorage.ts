@@ -64,13 +64,13 @@ export async function addSubscriber(subscriber: string, poster: string, subreddi
     if (!subscribers.includes(subscriber)) {
       subscribers.push(subscriber);
       await redis.set(SUBSCRIBERS_KEY(poster, subreddit), JSON.stringify(subscribers));
-      console.log(`Added subscriber ${subscriber} to ${poster} in ${subreddit}`);
+      console.log(`[Subscription] Added ${subscriber} -> ${poster} in r/${subreddit}`);
       return true;
     }
-    console.log(`Subscriber ${subscriber} already exists for ${poster} in ${subreddit}`);
+    console.log(`[Subscription] ${subscriber} already subscribed to ${poster} in r/${subreddit}`);
     return true; // Already subscribed is considered success
   } catch (error) {
-    console.error('Failed to add subscriber:', error);
+    console.error('[Subscription] Failed to add subscriber:', error);
     return false;
   }
 }
@@ -84,10 +84,10 @@ export async function removeSubscriber(subscriber: string, poster: string, subre
     const subscribers = await getSubscribers(poster, subreddit);
     const filtered = subscribers.filter(sub => sub !== subscriber);
     await redis.set(SUBSCRIBERS_KEY(poster, subreddit), JSON.stringify(filtered));
-    console.log(`Removed subscriber ${subscriber} from ${poster} in ${subreddit}`);
+    console.log(`[Subscription] Removed ${subscriber} -> ${poster} in r/${subreddit}`);
     return true;
   } catch (error) {
-    console.error('Failed to remove subscriber:', error);
+    console.error('[Subscription] Failed to remove subscriber:', error);
     return false;
   }
 }

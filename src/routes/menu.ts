@@ -43,7 +43,7 @@ const buildNukeForm = (title: string, targetId: string) => ({
 
 menu.post('/mop-comment', async (c) => {
   const request = await c.req.json<MenuItemRequest>();
-  console.log('request', request.targetId);
+  console.log('[Menu] Mop comment requested: ' + request.targetId);
   return c.json<UiResponse>(
     {
       showForm: {
@@ -57,6 +57,7 @@ menu.post('/mop-comment', async (c) => {
 
 menu.post('/mop-post', async (c) => {
   const request = await c.req.json<MenuItemRequest>();
+  console.log('[Menu] Mop post requested: ' + request.targetId);
   return c.json<UiResponse>(
     {
       showForm: {
@@ -78,7 +79,7 @@ menu.post('/subscribe', async (c) => {
   const post = await reddit.getPostById(postId);
   const poster = post.authorName;
   
-  console.log('Subscribe menu request for post:', postId, 'author:', poster);
+  console.log('[Menu] Subscribe request for post: ' + postId + ' author: ' + poster);
   
   return c.json<UiResponse>(
     {
@@ -115,7 +116,7 @@ menu.post('/unsubscribe', async (c) => {
   const post = await reddit.getPostById(postId);
   const poster = post.authorName;
   
-  console.log('Unsubscribe menu request for post:', postId, 'author:', poster);
+  console.log('[Menu] Unsubscribe request for post: ' + postId + ' author: ' + poster);
   
   return c.json<UiResponse>(
     {

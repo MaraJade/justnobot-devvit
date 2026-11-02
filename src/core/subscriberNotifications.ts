@@ -19,16 +19,15 @@ import { getSubscribers } from './redisStorage';
  * @param _postPermalink - The permalink to the post (unused in current implementation due to platform limitations)
  */
 export async function notifySubscribers(poster: string, subreddit: string, postTitle: string, _postPermalink: string): Promise<void> {
-  console.log('=== SUBSCRIBER NOTIFICATIONS ===');
-  console.log('Notifying subscribers for:', poster, 'in subreddit:', subreddit);
+  console.log('[Notifications] Notifying subscribers for: /u/' + poster + ' in r/' + subreddit);
   
   try {
     // Get subscribers for this poster in this subreddit
     const subscribers = await getSubscribers(poster, subreddit);
-    console.log('Found subscribers:', subscribers.length);
+    console.log('[Notifications] Found subscribers: ' + subscribers.length);
     
     if (subscribers.length === 0) {
-      console.log('No subscribers to notify');
+      console.log('[Notifications] No subscribers to notify');
       return;
     }
     
@@ -45,9 +44,9 @@ export async function notifySubscribers(poster: string, subreddit: string, postT
     //             f"{poster} {subreddit}"
     //     self.reddit.redditor(subscriber).message(subject=subject, message=body)
     
-    console.log('Subscriber notification structure preserved (not sent due to Devvit limitations):');
-    console.log(`Would notify ${subscribers.length} subscribers about: "${postTitle}"`);
-    console.log(`Original PRAW message format: "New submission by /u/${poster}"`);
+    console.log('[Notifications] Structure preserved (not sent due to Devvit limitations)');
+    console.log(`[Notifications] Would notify ${subscribers.length} subscribers about: "${postTitle}"`);
+    console.log('[Notifications] Original PRAW format: "New submission by /u/' + poster + '"');
     
     // When Devvit adds notification capabilities, this logic can be updated to:
     // 1. Check if subscriber has opted in to notifications
@@ -55,6 +54,6 @@ export async function notifySubscribers(poster: string, subreddit: string, postT
     // 3. Include unsubscribe link in notification
     
   } catch (error) {
-    console.error('Error in subscriber notification logic:', error);
+    console.error('[Notifications] Error in notification logic:', error);
   }
 }

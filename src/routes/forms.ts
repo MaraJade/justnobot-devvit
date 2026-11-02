@@ -38,7 +38,7 @@ const getTargetId = (values: NukeFormValues) => {
 
 forms.post('/mop-comment-submit', async (c) => {
   const values = await c.req.json<NukeFormValues>();
-  console.log('values', values);
+  console.log('[Forms] Mop comment submit values:', values);
   const normalized = normalizeValues(values);
 
   if (!normalized.lock && !normalized.remove) {
@@ -52,7 +52,7 @@ forms.post('/mop-comment-submit', async (c) => {
 
   const targetId = getTargetId(values);
   if (!isT1(targetId)) {
-    console.error('targetId is not a T1', targetId);
+    console.error('[Forms] targetId is not a T1:', targetId);
     return c.json<UiResponse>(
       {
         showToast: 'Mop failed! Please try again later.',
@@ -67,9 +67,7 @@ forms.post('/mop-comment-submit', async (c) => {
     subredditId: context.subredditId,
   });
 
-  console.log(
-    `Mop result - ${result.success ? 'success' : 'fail'} - ${result.message}`
-  );
+  console.log('[Forms] Mop comment result: ' + (result.success ? 'success' : 'fail') + ' - ' + result.message);
 
   return c.json<UiResponse>(
     {
@@ -81,7 +79,7 @@ forms.post('/mop-comment-submit', async (c) => {
 
 forms.post('/mop-post-submit', async (c) => {
   const values = await c.req.json<NukeFormValues>();
-  console.log('values', values);
+  console.log('[Forms] Mop post submit values:', values);
   const normalized = normalizeValues(values);
 
   if (!normalized.lock && !normalized.remove) {
@@ -95,7 +93,7 @@ forms.post('/mop-post-submit', async (c) => {
 
   const targetId = getTargetId(values);
   if (!isT3(targetId)) {
-    console.error('targetId is not a T3', targetId);
+    console.error('[Forms] targetId is not a T3:', targetId);
     return c.json<UiResponse>(
       {
         showToast: 'Mop failed! Please try again later.',
@@ -110,9 +108,7 @@ forms.post('/mop-post-submit', async (c) => {
     subredditId: context.subredditId,
   });
 
-  console.log(
-    `Mop result - ${result.success ? 'success' : 'fail'} - ${result.message}`
-  );
+  console.log('[Forms] Mop post result: ' + (result.success ? 'success' : 'fail') + ' - ' + result.message);
 
   return c.json<UiResponse>(
     {
@@ -130,7 +126,7 @@ forms.post('/subscribe', async (c) => {
   const subreddit = context.subredditName || '';
   const subscriber = context.userId || '';
 
-  console.log('Subscribe request:', { subscriber, poster, subreddit });
+  console.log('[Forms] Subscribe request: subscriber=' + subscriber + ' poster=' + poster + ' subreddit=' + subreddit);
 
   if (!subscriber || !poster || !subreddit) {
     return c.json<UiResponse>(
@@ -160,7 +156,7 @@ forms.post('/subscribe', async (c) => {
       );
     }
   } catch (error) {
-    console.error('Subscribe error:', error);
+    console.error('[Forms] Subscribe error:', error);
     return c.json<UiResponse>(
       {
         showToast: 'Failed to subscribe. Please try again.',
@@ -178,7 +174,7 @@ forms.post('/unsubscribe', async (c) => {
   const subreddit = context.subredditName || '';
   const subscriber = context.userId || '';
 
-  console.log('Unsubscribe request:', { subscriber, poster, subreddit });
+  console.log('[Forms] Unsubscribe request: subscriber=' + subscriber + ' poster=' + poster + ' subreddit=' + subreddit);
 
   if (!subscriber || !poster || !subreddit) {
     return c.json<UiResponse>(
@@ -208,7 +204,7 @@ forms.post('/unsubscribe', async (c) => {
       );
     }
   } catch (error) {
-    console.error('Unsubscribe error:', error);
+    console.error('[Forms] Unsubscribe error:', error);
     return c.json<UiResponse>(
       {
         showToast: 'Failed to unsubscribe. Please try again.',
