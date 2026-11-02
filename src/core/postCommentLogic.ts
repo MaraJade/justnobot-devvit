@@ -13,6 +13,7 @@ import {
   generateFullComment, 
   type CommentContext 
 } from './commentTemplates';
+import { notifySubscribers } from './subscriberNotifications';
 
 /**
  * Check if post should be skipped (archived, locked, already commented)
@@ -106,4 +107,8 @@ ${userHistory}`;
   
   // Increment user's post count
   await incrementUserPostCount(author, subreddit);
+  
+  // Notify subscribers about new post
+  // Replaces app-to-migrate/justnobot.py pingSubscribers call (line 398)
+  await notifySubscribers(author, subreddit, post.title || '', post.permalink || '');
 }
